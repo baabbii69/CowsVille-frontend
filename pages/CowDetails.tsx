@@ -1,12 +1,205 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { CowService, DataService } from '../services/api';
 import { Card, CardContent, CardHeader, CardTitle, Button, Badge, Tabs, TabsList, TabsTrigger, TabsContent, Modal } from '../components/ui';
-import { ArrowLeft, Activity, Milk, Heart, Calendar, Scale, Clock, Syringe, AlertTriangle, FileText, CheckCircle2, Stethoscope, Info, Home, Zap, Thermometer, TrendingUp } from 'lucide-react';
+import { ArrowLeft, Activity, Milk, Heart, Calendar, Scale, Clock, Syringe, AlertTriangle, FileText, CheckCircle2, Stethoscope, Info, Home, Zap, Thermometer, TrendingUp, Timer } from 'lucide-react';
 import { MedicalAssessment, StaffMember } from '../types';
 import { useToast } from '../context/ToastContext';
+
+// --- Fertility Window Component ---
+const FertilityWindowGraph = ({ heatStartTime }: { heatStartTime?: string | Date }) => {
+    // Mock start time if not provided (14 hours ago to show Green zone active)
+    const start = heatStartTime ? new Date(heatStartTime) : new Date(Date.now() - 1000 * 60 * 60 * 14); 
+    
+    const [now, setNow] = useState(new Date());
+
+    useEffect(() => {
+        const timer = setInterval(() => setNow(new Date()), 60000);
+        return () => clearInterval(timer);
+    }, []);
+
+    const elapsedHours = (now.getTime() - start.getTime()) / (1000 * 60 * 60);
+    const maxHours = 32; 
+    const graphHeight = 140;
+    const graphWidth = 320;
+    
+    // Map hours to SVG X coordinate
+    const scaleX = (h: number) => (h / maxHours) * graphWidth;
+    const pointerX = Math.min(scaleX(elapsedHours), graphWidth);
+
+    return (
+        <div className="w-full space-y-4 bg-white dark:bg-slate-900 rounded-2xl p-2">
+            <style>
+                {`
+                    @keyframes scan-light {
+                        0% { transform: translateX(-100%); opacity: 0; }
+                        50% { opacity: 0.5; }
+                        100% { transform: translateX(100%); opacity: 0; }
+                    }
+                    .animate-scan {
+                        animation: scan-light 4s ease-in-out infinite;
+                    }
+                    @keyframes dash {
+                        to { stroke-dashoffset: 0; }
+                    }
+                    .animate-path {
+                        stroke-dasharray: 1000;
+                        stroke-dashoffset: 1000;
+                        animation: dash 2s ease-out forwards;
+                    }
+                `}
+            </style>
+            <div className="flex justify-between items-end px-2">
+                <div>
+                    <h4 className="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                        <Timer className="h-4 w-4 text-violet-500" /> Fertility Window
+                    </h4>
+                    <p className="text-xs text-slate-500 mt-1">
+                        Heat Onset: <span className="font-medium text-slate-700 dark:text-slate-300">{start.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                    </p>
+                </div>
+                <div className="text-right">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Elapsed Time</p>
+                    <div className="flex items-baseline justify-end gap-1">
+                        <p className="text-2xl font-bold text-violet-600 dark:text-violet-400 font-mono">{elapsedHours.toFixed(1)}</p>
+                        <span className="text-sm font-medium text-slate-500">hrs</span>
+                    </div>
+                </div>
+            </div>
+
+            <div className="relative w-full aspect-[2.5/1] bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+                <svg className="w-full h-full" viewBox={`0 0 ${graphWidth} ${graphHeight}`} preserveAspectRatio="none">
+                    <defs>
+                        {/* Vibrancy Gradients */}
+                        <linearGradient id="zoneRed" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#f43f5e" stopOpacity="0.4"/>
+                            <stop offset="100%" stopColor="#f43f5e" stopOpacity="0.05"/>
+                        </linearGradient>
+                        <linearGradient id="zoneYellow" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#f59e0b" stopOpacity="0.4"/>
+                            <stop offset="100%" stopColor="#f59e0b" stopOpacity="0.05"/>
+                        </linearGradient>
+                        <linearGradient id="zoneGreen" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#10b981" stopOpacity="0.5"/>
+                            <stop offset="100%" stopColor="#10b981" stopOpacity="0.1"/>
+                        </linearGradient>
+                        
+                        {/* Scanning Shine Gradient */}
+                        <linearGradient id="scanGradient" x1="0" y1="0" x2="1" y2="0">
+                            <stop offset="0%" stopColor="white" stopOpacity="0"/>
+                            <stop offset="50%" stopColor="white" stopOpacity="0.5"/>
+                            <stop offset="100%" stopColor="white" stopOpacity="0"/>
+                        </linearGradient>
+                    </defs>
+                    
+                    {/* --- Grid & Axes --- */}
+                    {/* Horizontal Lines */}
+                    {[0.25, 0.5, 0.75].map(y => (
+                        <line key={y} x1="0" y1={graphHeight * y} x2={graphWidth} y2={graphHeight * y} stroke="#e2e8f0" strokeWidth="1" />
+                    ))}
+                    
+                    {/* X-Axis Markers */}
+                    {[0, 6, 9, 24, 28].map(h => (
+                        <g key={h}>
+                            <line x1={scaleX(h)} y1="0" x2={scaleX(h)} y2={graphHeight} stroke="#cbd5e1" strokeWidth="1" strokeDasharray="4 4" />
+                            <text x={scaleX(h) + 2} y={graphHeight - 6} fontSize="9" fill="#64748b" fontWeight="600">{h}h</text>
+                        </g>
+                    ))}
+
+                    {/* --- Probability Zones (Area Charts) --- */}
+                    
+                    {/* 0-6h: No Probability (Red) */}
+                    <path 
+                        d={`M 0 ${graphHeight} L 0 ${graphHeight * 0.8} L ${scaleX(6)} ${graphHeight * 0.8} L ${scaleX(6)} ${graphHeight} Z`} 
+                        fill="url(#zoneRed)" 
+                        stroke="#fb7185" 
+                        strokeWidth="2"
+                        className="animate-path"
+                    />
+                    
+                    {/* 6-9h: Low Probability (Yellow) */}
+                    <path 
+                        d={`M ${scaleX(6)} ${graphHeight} L ${scaleX(6)} ${graphHeight * 0.6} L ${scaleX(9)} ${graphHeight * 0.6} L ${scaleX(9)} ${graphHeight} Z`} 
+                        fill="url(#zoneYellow)" 
+                        stroke="#fbbf24" 
+                        strokeWidth="2"
+                        className="animate-path"
+                    />
+
+                    {/* 9-24h: High Probability (Green) */}
+                    <path 
+                        d={`M ${scaleX(9)} ${graphHeight} L ${scaleX(9)} ${graphHeight * 0.15} L ${scaleX(24)} ${graphHeight * 0.15} L ${scaleX(24)} ${graphHeight} Z`} 
+                        fill="url(#zoneGreen)" 
+                        stroke="#34d399" 
+                        strokeWidth="2"
+                        className="animate-path"
+                    />
+                    
+                    {/* 24-28h: Low Probability (Yellow) */}
+                    <path 
+                        d={`M ${scaleX(24)} ${graphHeight} L ${scaleX(24)} ${graphHeight * 0.6} L ${scaleX(28)} ${graphHeight * 0.6} L ${scaleX(28)} ${graphHeight} Z`} 
+                        fill="url(#zoneYellow)" 
+                        stroke="#fbbf24" 
+                        strokeWidth="2"
+                        className="animate-path"
+                    />
+
+                    {/* >28h: Cycle End (Red) */}
+                    <path 
+                        d={`M ${scaleX(28)} ${graphHeight} L ${scaleX(28)} ${graphHeight * 0.8} L ${graphWidth} ${graphHeight * 0.8} L ${graphWidth} ${graphHeight} Z`} 
+                        fill="url(#zoneRed)" 
+                        stroke="#fb7185" 
+                        strokeWidth="2"
+                        className="animate-path"
+                    />
+
+                    {/* Zone Labels */}
+                    <text x={scaleX(3)} y={graphHeight * 0.75} fontSize="8" fill="#e11d48" fontWeight="bold" textAnchor="middle" className="uppercase">No Prob</text>
+                    <text x={scaleX(7.5)} y={graphHeight * 0.55} fontSize="8" fill="#d97706" fontWeight="bold" textAnchor="middle" className="uppercase">Low</text>
+                    <text x={scaleX(16.5)} y={graphHeight * 0.12} fontSize="10" fill="#059669" fontWeight="bold" textAnchor="middle" className="uppercase tracking-widest">Optimal Window</text>
+                    <text x={scaleX(26)} y={graphHeight * 0.55} fontSize="8" fill="#d97706" fontWeight="bold" textAnchor="middle" className="uppercase">Low</text>
+
+                    {/* Scanning Overlay */}
+                    <rect x="0" y="0" width="60" height={graphHeight} fill="url(#scanGradient)" className="animate-scan mix-blend-overlay" />
+
+                    {/* --- Current Time Pointer --- */}
+                    <g transform={`translate(${pointerX}, 0)`} className="transition-transform duration-1000 ease-linear">
+                        {/* Vertical Line */}
+                        <line x1="0" y1="0" x2="0" y2={graphHeight} stroke="#4f46e5" strokeWidth="2" strokeDasharray="2 1" />
+                        
+                        {/* Pulsing Indicator */}
+                        <circle cx="0" cy={graphHeight * 0.5} r="8" className="fill-violet-500 animate-ping opacity-30" />
+                        <circle cx="0" cy={graphHeight * 0.5} r="4" className="fill-violet-600 stroke-white stroke-2" />
+                        
+                        {/* Label Box */}
+                        <g transform="translate(-18, -10)">
+                            <rect x="0" y="0" width="36" height="16" rx="4" className="fill-violet-600 shadow-md" />
+                            <text x="18" y="11" fontSize="9" fill="white" fontWeight="bold" textAnchor="middle">NOW</text>
+                        </g>
+                    </g>
+                </svg>
+            </div>
+            
+            {/* Legend */}
+            <div className="flex flex-wrap gap-4 justify-center mt-2">
+                <div className="flex items-center gap-2 px-3 py-1 bg-rose-50 rounded-full border border-rose-100">
+                    <div className="w-2 h-2 rounded-full bg-rose-500"></div>
+                    <span className="text-[10px] font-medium text-rose-700">No Probability</span>
+                </div>
+                <div className="flex items-center gap-2 px-3 py-1 bg-amber-50 rounded-full border border-amber-100">
+                    <div className="w-2 h-2 rounded-full bg-amber-500"></div>
+                    <span className="text-[10px] font-medium text-amber-700">Low Probability</span>
+                </div>
+                <div className="flex items-center gap-2 px-3 py-1 bg-emerald-50 rounded-full border border-emerald-100">
+                    <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
+                    <span className="text-[10px] font-bold text-emerald-700">High Probability</span>
+                </div>
+            </div>
+        </div>
+    );
+};
 
 const ViewAssessmentModal = ({ assessment, onClose }: { assessment: MedicalAssessment | null, onClose: () => void }) => {
     if (!assessment) return null;
@@ -103,11 +296,6 @@ const LactationCycleVisual = ({ daysInMilk }: { daysInMilk: number }) => {
 }
 
 const BCSGauge = ({ score }: { score: number }) => {
-    // Score is 1-5. 
-    // Optimal is typically 2.75 - 3.25 for dairy.
-    // < 2.5 Underweight (Red/Amber)
-    // > 4 Overweight (Red/Amber)
-    
     let colorClass = 'text-emerald-500';
     let label = 'Optimal';
     
@@ -122,14 +310,8 @@ const BCSGauge = ({ score }: { score: number }) => {
         <div className="flex flex-col items-center">
             <div className="relative h-24 w-40 overflow-hidden">
                 <svg className="h-full w-full" viewBox="0 0 100 55">
-                    {/* Background Arc */}
                     <path d="M 10 50 A 40 40 0 0 1 90 50" fill="none" stroke="#e2e8f0" strokeWidth="10" strokeLinecap="round" />
-                    
-                    {/* Colored Zones (Simplified visual guide) */}
-                    {/* Thin Zone */}
                     <path d="M 10 50 A 40 40 0 0 1 35 18" fill="none" stroke="currentColor" strokeWidth="0" className="text-rose-200 opacity-20" />
-                    
-                    {/* Value Arc */}
                     <path 
                         d="M 10 50 A 40 40 0 0 1 90 50" 
                         fill="none" 
@@ -137,7 +319,7 @@ const BCSGauge = ({ score }: { score: number }) => {
                         strokeWidth="10" 
                         strokeLinecap="round" 
                         className={`${colorClass} transition-all duration-1000`}
-                        strokeDasharray={`${(percentage / 100) * 126}, 126`} // Approx arc length
+                        strokeDasharray={`${(percentage / 100) * 126}, 126`} 
                     />
                 </svg>
                 <div className="absolute inset-0 flex flex-col items-center justify-end pb-2">
@@ -467,6 +649,15 @@ export default function CowDetails() {
 
                         <TabsContent active={activeTab === 'repro'}>
                             <div className="space-y-6">
+                                {/* Fertility Window Graph - Enhanced Light Theme */}
+                                {cow.status !== 'Pregnant' && (
+                                    <Card className="border-l-4 border-l-violet-500 shadow-md bg-white dark:bg-slate-900 overflow-hidden">
+                                        <CardContent className="p-6">
+                                            <FertilityWindowGraph />
+                                        </CardContent>
+                                    </Card>
+                                )}
+
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <Card className="bg-blue-50 dark:bg-blue-900/10 border-blue-100 dark:border-blue-900">
                                         <CardContent className="p-6">

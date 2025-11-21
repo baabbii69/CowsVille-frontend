@@ -89,6 +89,7 @@ const MOCK_FARMS: Farm[] = [
   },
 ];
 
+// Initial specific mock cows to preserve relationships with medical assessments
 const MOCK_COWS: Cow[] = [
   { 
     cow_id: 'COW-101', 
@@ -128,6 +129,36 @@ const MOCK_COWS: Cow[] = [
     id_or_breed_bull_used: 'BULL-Y'
   },
 ];
+
+// Automatically generate the rest of the cows to match farm totals
+MOCK_FARMS.forEach(farm => {
+    const currentCount = MOCK_COWS.filter(c => c.farm === farm.farm_id).length;
+    const needed = farm.total_number_of_cows - currentCount;
+    
+    for(let i = 0; i < needed; i++) {
+        const isSick = Math.random() < 0.05;
+        const isPregnant = Math.random() < 0.25;
+        const isLactating = !isSick && !isPregnant;
+        
+        MOCK_COWS.push({
+            cow_id: `${farm.farm_id.split('-')[1]}-${1000 + i + currentCount}`,
+            farm: farm.farm_id,
+            breed: Math.floor(Math.random() * 3) + 1,
+            sex: 'F',
+            date_of_birth: '2021-06-15',
+            parity: Math.floor(Math.random() * 4),
+            body_weight: 450 + (Math.random() * 100),
+            bcs: Number((2.5 + Math.random() * 2).toFixed(1)),
+            gynecological_status: 1,
+            lactation_number: Math.floor(Math.random() * 3) + 1,
+            days_in_milk: Math.floor(Math.random() * 300),
+            average_daily_milk: Number((15 + Math.random() * 20).toFixed(1)),
+            cow_inseminated_before: true,
+            number_of_inseminations: Math.floor(Math.random() * 3),
+            status: isSick ? 'Sick' : isPregnant ? 'Pregnant' : 'Lactating'
+        });
+    }
+});
 
 const MOCK_MEDICAL_ASSESSMENTS: MedicalAssessment[] = [
     {
@@ -312,6 +343,13 @@ export const CowService = {
     }
     const response = await api.post('/cows/', data);
     return response.data;
+  },
+  getMedicalAssessmentsByCow: async (cowId: string): Promise<MedicalAssessment[]> => {
+      if (isDemo) {
+          return Promise.resolve(MOCK_MEDICAL_ASSESSMENTS.filter(m => m.cow === cowId));
+      }
+      const response = await api.get(`/cows/medical_records/`, { params: { cow_id: cowId, type: 'all' } });
+      return response.data;
   }
 };
 

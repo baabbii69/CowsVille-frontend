@@ -1,9 +1,9 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { CowService, FarmService, DataService } from '../services/api';
 import { Card, CardContent, Button, Input, Label, Badge, Modal, Select, Tabs, TabsList, TabsTrigger, TabsContent, Switch } from '../components/ui';
-import { Plus, Search, X, Activity, Milk, Heart, FileText } from 'lucide-react';
+import { Plus, Search, X, Activity, Milk, Heart, FileText, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -44,6 +44,9 @@ export default function Cows() {
   const [isCreating, setIsCreating] = useState(false);
   const [activeTab, setActiveTab] = useState('identity');
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -51,6 +54,11 @@ export default function Cows() {
   const { data: farms } = useQuery({ queryKey: ['farms'], queryFn: FarmService.getAll });
   const { data: breeds } = useQuery({ queryKey: ['breeds'], queryFn: DataService.getBreedTypes });
   const { data: gyneStatuses } = useQuery({ queryKey: ['gyne'], queryFn: DataService.getGynecologicalStatuses });
+
+  // Reset to first page when search changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
 
   const createMutation = useMutation({
     mutationFn: CowService.create,
@@ -92,10 +100,18 @@ export default function Cows() {
     createMutation.mutate(data as any);
   };
 
+  // Filtering
   const filteredCows = cows?.filter(cow => 
       cow.cow_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (typeof cow.farm === 'string' && cow.farm.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  ) || [];
+
+  // Pagination Logic
+  const totalItems = filteredCows.length;
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedCows = filteredCows.slice(startIndex, endIndex);
 
   return (
     <div className="space-y-6">
@@ -120,10 +136,10 @@ export default function Cows() {
         />
       </div>
 
-      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
-         <div className="overflow-x-auto">
+      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col min-h-[500px]">
+         <div className="overflow-x-auto flex-1">
             <table className="w-full text-sm text-left">
-                <thead className="bg-slate-50 dark:bg-slate-950 text-slate-500 uppercase text-xs font-semibold">
+                <thead className="bg-slate-50 dark:bg-slate-950 text-slate-500 uppercase text-xs font-semibold sticky top-0">
                     <tr>
                         <th className="px-6 py-4">Cow ID</th>
                         <th className="px-6 py-4">Farm</th>
@@ -135,7 +151,8 @@ export default function Cows() {
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                     {isLoading ? (
                         <tr><td colSpan={5} className="p-8 text-center text-slate-500">Loading livestock...</td></tr>
-                    ) : filteredCows?.map(cow => (
+                    ) : paginatedCows.length > 0 ? (
+                        paginatedCows.map(cow => (
                         <tr key={cow.cow_id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer" onClick={() => navigate(`/cows/${cow.cow_id}`)}>
                             <td className="px-6 py-4 font-medium text-primary-600">{cow.cow_id}</td>
                             <td className="px-6 py-4">{typeof cow.farm === 'string' ? cow.farm : (cow.farm as any).farm_id}</td>
@@ -149,10 +166,44 @@ export default function Cows() {
                                 <Button variant="ghost" size="sm">Details</Button>
                             </td>
                         </tr>
-                    ))}
+                    ))) : (
+                        <tr><td colSpan={5} className="p-12 text-center text-slate-500">No cows found matching your search.</td></tr>
+                    )}
                 </tbody>
             </table>
          </div>
+         
+         {/* Pagination Controls */}
+         {!isLoading && totalItems > 0 && (
+             <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900">
+                 <div className="text-xs text-slate-500">
+                     Showing <span className="font-medium">{startIndex + 1}</span> to <span className="font-medium">{Math.min(endIndex, totalItems)}</span> of <span className="font-medium">{totalItems}</span> entries
+                 </div>
+                 <div className="flex items-center gap-2">
+                     <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                        disabled={currentPage === 1}
+                        className="h-8 px-2"
+                     >
+                         <ChevronLeft className="h-4 w-4" />
+                     </Button>
+                     <span className="text-xs font-medium text-slate-600 dark:text-slate-400 px-2">
+                         Page {currentPage} of {totalPages}
+                     </span>
+                     <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                        disabled={currentPage === totalPages}
+                        className="h-8 px-2"
+                     >
+                         <ChevronRight className="h-4 w-4" />
+                     </Button>
+                 </div>
+             </div>
+         )}
       </div>
 
       <Modal isOpen={isCreating} onClose={() => setIsCreating(false)} title="Register New Cow" className="max-w-2xl">
@@ -249,22 +300,22 @@ export default function Cows() {
                          
                          {inseminatedBefore && (
                              <>
-                                <div className="space-y-2">
-                                    <Label>Number of Inseminations</Label>
-                                    <Input type="number" {...register('number_of_inseminations')} />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label>Last Insemination Date</Label>
-                                    <Input type="date" {...register('last_date_insemination')} />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label>Bull ID / Breed Used</Label>
-                                    <Input {...register('id_or_breed_bull_used')} />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label>Last Calving Date</Label>
-                                    <Input type="date" {...register('last_calving_date')} />
-                                </div>
+                                 <div className="space-y-2">
+                                     <Label>Number of Inseminations</Label>
+                                     <Input type="number" {...register('number_of_inseminations')} />
+                                 </div>
+                                 <div className="space-y-2">
+                                     <Label>Last Insemination Date</Label>
+                                     <Input type="date" {...register('last_date_insemination')} />
+                                 </div>
+                                 <div className="space-y-2">
+                                     <Label>Bull ID / Breed Used</Label>
+                                     <Input {...register('id_or_breed_bull_used')} />
+                                 </div>
+                                 <div className="space-y-2">
+                                     <Label>Last Calving Date</Label>
+                                     <Input type="date" {...register('last_calving_date')} />
+                                 </div>
                              </>
                          )}
                      </div>

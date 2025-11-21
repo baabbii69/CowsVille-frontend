@@ -4,7 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { FarmService, CowService, DataService, StaffService } from '../services/api';
 import { Card, CardContent, CardHeader, CardTitle, Button, Badge, Tabs, TabsList, TabsTrigger, TabsContent, Modal, Select, Label, Input } from '../components/ui';
-import { ArrowLeft, MapPin, Phone, User, Droplets, Home, TrendingUp, Wheat, LayoutGrid, ShieldCheck, HeartPulse, Stethoscope, Users, Edit2, CheckCircle2, Activity, Syringe, AlertTriangle, ClipboardList, Pill, Eye, Navigation, Layers, Tent, Map, Search, X, ExternalLink, Copy } from 'lucide-react';
+import { ArrowLeft, MapPin, Phone, User, Droplets, Home, TrendingUp, Wheat, LayoutGrid, ShieldCheck, HeartPulse, Stethoscope, Users, Edit2, CheckCircle2, Activity, Syringe, AlertTriangle, ClipboardList, Pill, Eye, Navigation, Layers, Tent, Map, Search, X, ExternalLink, Copy, ChevronLeft, ChevronRight } from 'lucide-react';
 import { StaffMember, MedicalAssessment } from '../types';
 import { useToast } from '../context/ToastContext';
 
@@ -219,6 +219,10 @@ export default function FarmDetails() {
     
     const [selectedRecord, setSelectedRecord] = useState<MedicalAssessment | null>(null);
 
+    // State for Cows Pagination
+    const [cowsPage, setCowsPage] = useState(1);
+    const cowsPerPage = 10;
+
     // Queries
     const { data: farm, isLoading: farmLoading } = useQuery({
         queryKey: ['farm', id],
@@ -226,12 +230,20 @@ export default function FarmDetails() {
         enabled: !!id
     });
 
-    const { data: cows } = useQuery({
+    const { data: allCows } = useQuery({
         queryKey: ['cows', id],
         queryFn: CowService.getAll,
         select: (allCows) => allCows.filter(c => typeof c.farm === 'string' ? c.farm === id : (c.farm as any).farm_id === id)
     });
     
+    // Pagination Logic for Cows Tab
+    const cowsList = allCows || [];
+    const totalCows = cowsList.length;
+    const totalCowsPages = Math.ceil(totalCows / cowsPerPage);
+    const startCowsIndex = (cowsPage - 1) * cowsPerPage;
+    const endCowsIndex = startCowsIndex + cowsPerPage;
+    const paginatedCows = cowsList.slice(startCowsIndex, endCowsIndex);
+
     const { data: medicalRecords } = useQuery({
         queryKey: ['medical', id],
         queryFn: () => FarmService.getMedicalAssessments(id!),
@@ -675,7 +687,8 @@ export default function FarmDetails() {
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                                            {cows?.map(cow => (
+                                            {paginatedCows.length > 0 ? (
+                                                paginatedCows.map(cow => (
                                                 <tr key={cow.cow_id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                                                     <td className="px-6 py-4 font-medium text-primary-600">{cow.cow_id}</td>
                                                     <td className="px-6 py-4"><Badge variant={cow.status === 'Sick' ? 'danger' : cow.status === 'Pregnant' ? 'warning' : 'success'}>{cow.status}</Badge></td>
@@ -685,13 +698,41 @@ export default function FarmDetails() {
                                                         <Button variant="ghost" size="sm" onClick={() => navigate(`/cows/${cow.cow_id}`)}>Details</Button>
                                                     </td>
                                                 </tr>
-                                            ))}
-                                            {(!cows || cows.length === 0) && (
+                                            ))) : (
                                                 <tr><td colSpan={5} className="p-8 text-center text-slate-500">No cows registered yet.</td></tr>
                                             )}
                                         </tbody>
                                     </table>
                                 </div>
+                                
+                                {/* Cows Pagination */}
+                                {totalCows > 0 && (
+                                    <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                                        <div className="text-xs text-slate-500">
+                                            Showing {startCowsIndex + 1}-{Math.min(endCowsIndex, totalCows)} of {totalCows}
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <Button 
+                                                variant="outline" 
+                                                size="sm" 
+                                                onClick={() => setCowsPage(p => Math.max(1, p - 1))}
+                                                disabled={cowsPage === 1}
+                                                className="h-8 px-2"
+                                            >
+                                                <ChevronLeft className="h-4 w-4" />
+                                            </Button>
+                                            <Button 
+                                                variant="outline" 
+                                                size="sm" 
+                                                onClick={() => setCowsPage(p => Math.min(totalCowsPages, p + 1))}
+                                                disabled={cowsPage === totalCowsPages}
+                                                className="h-8 px-2"
+                                            >
+                                                <ChevronRight className="h-4 w-4" />
+                                            </Button>
+                                        </div>
+                                    </div>
+                                )}
                             </CardContent>
                         </Card>
                     </div>

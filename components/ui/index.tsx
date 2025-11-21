@@ -205,6 +205,7 @@ export const TabsList = ({ children, className }: { children: React.ReactNode; c
 export const TabsTrigger = ({ children, active, onClick, className }: { children: React.ReactNode; active: boolean; onClick: () => void; className?: string }) => {
     return (
         <button
+            type="button"
             onClick={onClick}
             className={cn(
                 "w-full rounded-lg py-2.5 text-sm font-medium leading-5 ring-white ring-opacity-60 ring-offset-2 ring-offset-primary-400 focus:outline-none focus:ring-2",

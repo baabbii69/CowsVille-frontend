@@ -3,8 +3,8 @@ import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { FarmService, CowService } from '../services/api';
 import { Button } from '../components/ui';
-import { Milk, AlertCircle, TrendingUp, ChevronRight, Activity, Map, Calendar, Search, X, ArrowUpRight, Tractor, Leaf, Droplets, RefreshCcw, Database } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { Milk, AlertCircle, TrendingUp, ChevronRight, Activity, Map, Calendar, Search, X, ArrowUpRight, Tractor, Leaf, Droplets, RefreshCcw, Database, BarChart3 } from 'lucide-react';
+import { motion, Variants } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 
 export default function Dashboard() {
@@ -55,6 +55,7 @@ export default function Dashboard() {
 
   // Calculate Stats based on active dataset
   const totalFarms = activeFarms.length;
+  // Ensure totalCows matches the sum of cows from all active farms in the DB
   const totalCows = activeFarms.reduce((acc, f) => acc + f.total_number_of_cows, 0); 
   
   const sickCows = activeCows.filter(c => c.status === 'Sick').length;
@@ -65,24 +66,33 @@ export default function Dashboard() {
   const displayedFarmsList = debouncedSearchTerm ? filteredFarms : (farms || []).slice(0, 5);
   const listTitle = debouncedSearchTerm ? `Search Results (${filteredFarms.length})` : 'Recent Activity';
 
-  // Animations
-  const container = {
+  // Enhanced Animations
+  const container: Variants = {
     hidden: { opacity: 0 },
     show: {
       opacity: 1,
-      transition: { staggerChildren: 0.1 }
+      transition: { staggerChildren: 0.15, delayChildren: 0.1 }
     }
   };
 
-  const item = {
-    hidden: { y: 20, opacity: 0 },
-    show: { y: 0, opacity: 1 }
+  const item: Variants = {
+    hidden: { y: 30, opacity: 0, scale: 0.95 },
+    show: { 
+        y: 0, 
+        opacity: 1, 
+        scale: 1,
+        transition: { type: "spring", stiffness: 100, damping: 15 }
+    }
   };
 
   return (
     <div className="space-y-8 pb-8">
       {/* Header Section with Search & Kobo Sync */}
-      <div className="flex flex-col lg:flex-row justify-between items-end lg:items-center gap-6 bg-white dark:bg-slate-900 p-6 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800">
+      <motion.div 
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="flex flex-col lg:flex-row justify-between items-end lg:items-center gap-6 bg-white dark:bg-slate-900 p-6 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800"
+      >
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
              Dashboard
@@ -92,10 +102,10 @@ export default function Dashboard() {
                 Operations Overview
              </p>
              <span className="text-slate-300">•</span>
-             <div className="flex items-center gap-1 text-xs text-slate-400 bg-slate-50 dark:bg-slate-800 px-2 py-0.5 rounded-full">
-                <Database className="h-3 w-3" />
+             <div className="flex items-center gap-1 text-xs text-slate-400 bg-slate-50 dark:bg-slate-800 px-2 py-0.5 rounded-full border border-slate-100 dark:border-slate-700">
+                <Database className="h-3 w-3 text-primary-500" />
                 <span>KoboToolbox Synced: {lastSynced}</span>
-                <button onClick={handleRefreshData} className={`ml-1 hover:text-primary-500 ${isSyncing ? 'animate-spin' : ''}`}>
+                <button onClick={handleRefreshData} className={`ml-1 hover:text-primary-500 transition-transform ${isSyncing ? 'animate-spin' : 'hover:rotate-180'}`}>
                     <RefreshCcw className="h-3 w-3" />
                 </button>
              </div>
@@ -123,7 +133,7 @@ export default function Dashboard() {
                 </button>
             )}
         </div>
-      </div>
+      </motion.div>
 
       {/* Bento Grid Layout */}
       <motion.div 
@@ -132,72 +142,69 @@ export default function Dashboard() {
         animate="show"
         className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6 auto-rows-[minmax(160px,auto)]"
       >
-        {/* 1. Hero Card: Total Milk Production */}
+        {/* 1. Hero Card: Active Farms (Replaces Total Milk) */}
         <motion.div 
             variants={item} 
-            className="md:col-span-2 lg:col-span-2 lg:row-span-2 group relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-700 p-8 text-white shadow-xl shadow-blue-900/20 cursor-default transition-all hover:scale-[1.01]"
+            whileHover={{ scale: 1.01, transition: { type: "spring", stiffness: 400, damping: 17 } }}
+            onClick={() => navigate('/farms')}
+            className="md:col-span-2 lg:col-span-2 lg:row-span-2 group relative overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-emerald-600 via-teal-600 to-green-700 p-8 text-white shadow-xl shadow-emerald-900/20 cursor-pointer"
         >
             <div className="relative z-10 flex flex-col h-full justify-between">
                 <div className="flex justify-between items-start">
                     <div className="p-3 bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 shadow-inner">
-                        <Milk className="h-8 w-8 text-white" />
+                        <Tractor className="h-8 w-8 text-white" />
                     </div>
                     <div className="px-3 py-1 bg-white/20 backdrop-blur-md rounded-full text-sm font-medium border border-white/10 flex items-center gap-1">
-                        <TrendingUp className="h-3 w-3" /> Daily Yield
+                        <Activity className="h-3 w-3" /> Operational
                     </div>
                 </div>
                 
                 <div className="space-y-2 mt-8">
-                    <h2 className="text-lg font-medium text-blue-100">Total Milk Output</h2>
+                    <h2 className="text-lg font-medium text-emerald-100">Active Farms Managed</h2>
                     <div className="flex items-baseline gap-2">
-                        <span className="text-5xl lg:text-7xl font-bold tracking-tighter">
-                            {farmsLoading ? '...' : totalMilk.toLocaleString()}
+                        <span className="text-6xl lg:text-8xl font-bold tracking-tighter drop-shadow-sm">
+                            {farmsLoading ? '...' : totalFarms}
                         </span>
-                        <span className="text-2xl text-blue-200 font-medium">Liters</span>
+                        <span className="text-2xl text-emerald-200 font-medium">Units</span>
                     </div>
-                    <div className="w-full bg-white/20 h-1.5 rounded-full mt-4 overflow-hidden">
-                        <motion.div 
-                            initial={{ width: 0 }}
-                            animate={{ width: '75%' }}
-                            transition={{ duration: 1.5, ease: "easeOut" }}
-                            className="bg-white h-full rounded-full"
-                        />
+                    
+                    <div className="flex items-center gap-4 mt-4">
+                        <div className="flex -space-x-2">
+                            {[1,2,3,4].map(i => (
+                                <div key={i} className="h-8 w-8 rounded-full bg-emerald-800/50 border border-emerald-400/30 flex items-center justify-center text-[10px] backdrop-blur-sm">
+                                    <Leaf className="h-4 w-4 text-emerald-200" />
+                                </div>
+                            ))}
+                        </div>
+                        <p className="text-emerald-100 text-sm opacity-90">
+                            Across {activeFarms.length > 0 ? new Set(activeFarms.map(f => f.cluster_number)).size : 0} active clusters
+                        </p>
                     </div>
-                    <p className="text-blue-100 text-sm mt-2 opacity-80">
-                        Production across {activeFarms.length} monitored farms.
-                    </p>
                 </div>
             </div>
             
             {/* Decorative Backgrounds */}
-            <div className="absolute top-0 right-0 -mt-20 -mr-20 w-72 h-72 bg-white/10 rounded-full blur-3xl group-hover:bg-white/15 transition-colors duration-700"></div>
-            <div className="absolute bottom-0 left-0 -mb-24 -ml-24 w-80 h-80 bg-purple-500/30 rounded-full blur-3xl group-hover:bg-purple-500/40 transition-colors duration-700"></div>
+            <motion.div 
+                initial={{ rotate: 0 }} 
+                animate={{ rotate: 360 }} 
+                transition={{ duration: 120, repeat: Infinity, ease: "linear" }}
+                className="absolute -top-20 -right-20 w-96 h-96 bg-emerald-400/10 rounded-full blur-3xl border border-white/5"
+            />
+            <motion.div 
+                initial={{ scale: 1 }}
+                animate={{ scale: [1, 1.1, 1] }}
+                transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
+                className="absolute bottom-0 left-0 -mb-24 -ml-24 w-80 h-80 bg-teal-400/20 rounded-full blur-3xl" 
+            />
+            <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10 mix-blend-overlay"></div>
         </motion.div>
 
-        {/* 2. Active Farms */}
+        {/* 2. Total Livestock (Swapped Position) */}
         <motion.div 
             variants={item} 
-            onClick={() => navigate('/farms')}
-            className="md:col-span-1 bg-gradient-to-br from-emerald-500 to-teal-600 p-6 rounded-[2rem] shadow-lg shadow-emerald-500/20 text-white cursor-pointer hover:scale-[1.02] transition-transform relative overflow-hidden group"
-        >
-            <div className="flex justify-between items-start mb-6 relative z-10">
-                <div className="p-3 bg-white/20 backdrop-blur-sm rounded-2xl text-white">
-                    <Tractor className="h-6 w-6" />
-                </div>
-                <ArrowUpRight className="h-5 w-5 text-emerald-100 opacity-0 group-hover:opacity-100 transition-opacity" />
-            </div>
-            <div className="relative z-10 mt-auto">
-                <p className="text-4xl font-bold mb-1 tracking-tight">{farmsLoading ? '...' : totalFarms}</p>
-                <h3 className="text-emerald-100 font-medium text-sm uppercase tracking-wide">Active Farms</h3>
-            </div>
-            <Leaf className="absolute -bottom-4 -right-4 h-32 w-32 text-emerald-400/20 rotate-12" />
-        </motion.div>
-
-        {/* 3. Total Livestock */}
-        <motion.div 
-            variants={item} 
+            whileHover={{ y: -5, transition: { type: "spring", stiffness: 400 } }}
             onClick={() => navigate('/cows')}
-            className="md:col-span-1 bg-gradient-to-br from-violet-500 to-fuchsia-600 p-6 rounded-[2rem] shadow-lg shadow-violet-500/20 text-white cursor-pointer hover:scale-[1.02] transition-transform relative overflow-hidden group"
+            className="md:col-span-1 bg-gradient-to-br from-violet-500 to-fuchsia-600 p-6 rounded-[2rem] shadow-lg shadow-violet-500/20 text-white cursor-pointer relative overflow-hidden group"
         >
             <div className="flex justify-between items-start mb-6 relative z-10">
                 <div className="p-3 bg-white/20 backdrop-blur-sm rounded-2xl text-white">
@@ -209,14 +216,38 @@ export default function Dashboard() {
                 <p className="text-4xl font-bold mb-1 tracking-tight">{cowsLoading ? '...' : totalCows}</p>
                 <h3 className="text-violet-100 font-medium text-sm uppercase tracking-wide">Total Cows</h3>
             </div>
-            <Droplets className="absolute -bottom-4 -right-4 h-32 w-32 text-violet-400/20 rotate-12" />
+            {/* Animated Background Ring */}
+            <div className="absolute -right-12 -top-12 h-40 w-40 rounded-full border-8 border-white/5 group-hover:scale-125 transition-transform duration-700"></div>
+        </motion.div>
+
+        {/* 3. Total Milk Output (Swapped Position) */}
+        <motion.div 
+            variants={item} 
+            whileHover={{ y: -5, transition: { type: "spring", stiffness: 400 } }}
+            className="md:col-span-1 bg-gradient-to-br from-blue-500 to-indigo-600 p-6 rounded-[2rem] shadow-lg shadow-blue-500/20 text-white cursor-default relative overflow-hidden group"
+        >
+            <div className="flex justify-between items-start mb-6 relative z-10">
+                <div className="p-3 bg-white/20 backdrop-blur-sm rounded-2xl text-white">
+                    <Milk className="h-6 w-6" />
+                </div>
+                <TrendingUp className="h-5 w-5 text-blue-100 opacity-0 group-hover:opacity-100 transition-opacity" />
+            </div>
+            <div className="relative z-10 mt-auto">
+                <div className="flex items-end gap-2 mb-1">
+                    <p className="text-3xl font-bold tracking-tight">{farmsLoading ? '...' : totalMilk.toLocaleString()}</p>
+                    <span className="text-sm mb-1.5 font-medium text-blue-100">Liters</span>
+                </div>
+                <h3 className="text-blue-100 font-medium text-sm uppercase tracking-wide">Total Milk Output</h3>
+            </div>
+            <Droplets className="absolute -bottom-4 -right-4 h-32 w-32 text-blue-400/20 rotate-12 group-hover:scale-110 transition-transform duration-500" />
         </motion.div>
 
         {/* 4. Health Alerts */}
         <motion.div 
             variants={item} 
+            whileHover={{ y: -5, transition: { type: "spring", stiffness: 400 } }}
             onClick={() => navigate('/cows')}
-            className={`md:col-span-1 p-6 rounded-[2rem] border shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all cursor-pointer relative overflow-hidden ${sickCows > 0 ? 'bg-white dark:bg-slate-900 border-rose-200 dark:border-rose-900' : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800'}`}
+            className={`md:col-span-1 p-6 rounded-[2rem] border shadow-sm cursor-pointer relative overflow-hidden group ${sickCows > 0 ? 'bg-white dark:bg-slate-900 border-rose-200 dark:border-rose-900' : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800'}`}
         >
             <div className="flex justify-between items-start mb-6 relative z-10">
                 <div className={`p-3 rounded-2xl ${sickCows > 0 ? 'bg-rose-100 text-rose-600 dark:bg-rose-900/50 dark:text-rose-300' : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'}`}>
@@ -231,24 +262,25 @@ export default function Dashboard() {
             </div>
             <div className="relative z-10">
                 <p className={`text-4xl font-bold mb-1 tracking-tight ${sickCows > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-900 dark:text-white'}`}>{sickCows}</p>
-                <h3 className="text-slate-500 dark:text-slate-400 font-medium text-sm uppercase tracking-wide">Health Alerts</h3>
+                <h3 className="text-slate-500 dark:text-slate-400 font-medium text-sm uppercase tracking-wide group-hover:text-rose-500 transition-colors">Health Alerts</h3>
             </div>
         </motion.div>
 
         {/* 5. Pregnancies */}
         <motion.div 
             variants={item} 
+            whileHover={{ y: -5, transition: { type: "spring", stiffness: 400 } }}
             onClick={() => navigate('/cows')}
-            className="md:col-span-1 bg-white dark:bg-slate-900 p-6 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all cursor-pointer relative overflow-hidden"
+            className="md:col-span-1 bg-white dark:bg-slate-900 p-6 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm cursor-pointer relative overflow-hidden group"
         >
             <div className="flex justify-between items-start mb-6 relative z-10">
-                <div className="p-3 bg-amber-50 dark:bg-amber-900/30 rounded-2xl text-amber-600 dark:text-amber-400">
+                <div className="p-3 bg-amber-50 dark:bg-amber-900/30 rounded-2xl text-amber-600 dark:text-amber-400 group-hover:bg-amber-100 dark:group-hover:bg-amber-900/50 transition-colors">
                     <Calendar className="h-6 w-6" />
                 </div>
             </div>
             <div className="relative z-10">
                 <p className="text-4xl font-bold text-slate-900 dark:text-white mb-1 tracking-tight">{pregnantCows}</p>
-                <h3 className="text-slate-500 dark:text-slate-400 font-medium text-sm uppercase tracking-wide">Pregnancies</h3>
+                <h3 className="text-slate-500 dark:text-slate-400 font-medium text-sm uppercase tracking-wide group-hover:text-amber-500 transition-colors">Pregnancies</h3>
             </div>
         </motion.div>
 

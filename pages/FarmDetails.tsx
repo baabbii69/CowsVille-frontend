@@ -4,7 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { FarmService, CowService, DataService, StaffService } from '../services/api';
 import { Card, CardContent, CardHeader, CardTitle, Button, Badge, Tabs, TabsList, TabsTrigger, TabsContent, Modal, Select, Label, Input } from '../components/ui';
-import { ArrowLeft, MapPin, Phone, User, Droplets, Home, TrendingUp, Wheat, LayoutGrid, ShieldCheck, HeartPulse, Stethoscope, Users, Edit2, CheckCircle2, Activity, Syringe, AlertTriangle, ClipboardList, Pill, Eye, Navigation, Layers, Tent, Map, Search, X, ExternalLink, Copy, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowLeft, MapPin, Phone, User, Droplets, Home, TrendingUp, Wheat, LayoutGrid, ShieldCheck, HeartPulse, Stethoscope, Users, Edit2, CheckCircle2, Activity, Syringe, AlertTriangle, ClipboardList, Pill, Eye, Navigation, Layers, Tent, Map, Search, X, ExternalLink, Copy, ChevronLeft, ChevronRight, BarChart3, Target, ArrowUpRight, ArrowDownRight, Minus } from 'lucide-react';
 import { StaffMember, MedicalAssessment } from '../types';
 import { useToast } from '../context/ToastContext';
 
@@ -257,6 +257,71 @@ export default function FarmDetails() {
     const { data: doctors, isLoading: doctorsLoading } = useQuery({ queryKey: ['doctors'], queryFn: StaffService.getDoctors });
     const { data: inseminators, isLoading: inseminatorsLoading } = useQuery({ queryKey: ['inseminators'], queryFn: StaffService.getInseminators });
 
+    // --- Performance Metrics Calculations ---
+    const performanceMetrics = useMemo(() => {
+        if (!allCows || allCows.length === 0) return null;
+
+        let totalInsemDays = 0;
+        let insemCount = 0;
+        let totalInsemPerConception = 0;
+        let pregnantCount = 0;
+        let repeatBreeders = 0;
+        let inseminatedCowsCount = 0;
+        let nonPregnant90Days = 0;
+        let cowsPost90Days = 0;
+
+        const now = new Date();
+
+        allCows.forEach(cow => {
+            const lastCalving = cow.last_calving_date ? new Date(cow.last_calving_date) : null;
+            const lastInsem = cow.last_date_insemination ? new Date(cow.last_date_insemination) : null;
+
+            // 1. Insemination after calving
+            if (lastCalving && lastInsem && lastInsem > lastCalving) {
+                const diffTime = Math.abs(lastInsem.getTime() - lastCalving.getTime());
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                totalInsemDays += diffDays;
+                insemCount++;
+            }
+
+            // 4. Insems per conception (only for pregnant cows)
+            if (cow.status === 'Pregnant') {
+                totalInsemPerConception += cow.number_of_inseminations;
+                pregnantCount++;
+            }
+
+            // 5. Repeat breeders
+            if (cow.number_of_inseminations > 0) {
+                inseminatedCowsCount++;
+                if (cow.number_of_inseminations >= 3) repeatBreeders++;
+            }
+
+            // 6. Non-pregnant > 3 months
+            if (lastCalving) {
+                const daysSinceCalving = Math.floor((now.getTime() - lastCalving.getTime()) / (1000 * 60 * 60 * 24));
+                if (daysSinceCalving > 90) {
+                    cowsPost90Days++;
+                    if (cow.status !== 'Pregnant') {
+                        nonPregnant90Days++;
+                    }
+                }
+            }
+        });
+
+        // Mocking metrics that require extensive historical data not in basic Cow model
+        const avgCalvingInterval = 13.5; // Months
+        const heatAfterCalving = 45.2; // Days
+
+        return {
+            avgInsemDays: insemCount ? (totalInsemDays / insemCount).toFixed(1) : 'N/A',
+            avgCalvingInterval: avgCalvingInterval.toFixed(1),
+            avgHeatDays: heatAfterCalving.toFixed(1),
+            insemPerConception: pregnantCount ? (totalInsemPerConception / pregnantCount).toFixed(1) : '0.0',
+            repeatBreederRate: inseminatedCowsCount ? ((repeatBreeders / inseminatedCowsCount) * 100).toFixed(1) : '0.0',
+            nonPreg90DayRate: cowsPost90Days ? ((nonPregnant90Days / cowsPost90Days) * 100).toFixed(1) : '0.0'
+        };
+    }, [allCows]);
+
     // Reset search when modal opens
     useEffect(() => {
         if (isStaffModalOpen) {
@@ -398,6 +463,14 @@ export default function FarmDetails() {
         ? floorTypes?.find(f => f.id === farm.type_of_floor)?.name 
         : (farm.type_of_floor as any)?.name;
 
+    // Helper for trend icon
+    const renderTrend = (val: number, target: number, inverse = false) => {
+        const isGood = inverse ? val <= target : val >= target;
+        return isGood ? 
+            <div className="flex items-center text-emerald-500 bg-emerald-50 px-2 py-0.5 rounded-full text-xs font-medium"><ArrowUpRight className="h-3 w-3 mr-1" /> Good</div> : 
+            <div className="flex items-center text-rose-500 bg-rose-50 px-2 py-0.5 rounded-full text-xs font-medium"><ArrowDownRight className="h-3 w-3 mr-1" /> Check</div>;
+    };
+
     return (
         <div className="space-y-8 pb-10">
             {/* Cinematic Hero Section */}
@@ -463,6 +536,12 @@ export default function FarmDetails() {
                             className={`pb-4 text-sm font-medium transition-all border-b-2 ${activeTab === 'medical' ? 'border-primary-500 text-primary-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
                         >
                             <div className="flex items-center gap-2"><HeartPulse className="h-4 w-4" /> Medical History</div>
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('performance')}
+                            className={`pb-4 text-sm font-medium transition-all border-b-2 ${activeTab === 'performance' ? 'border-primary-500 text-primary-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+                        >
+                            <div className="flex items-center gap-2"><BarChart3 className="h-4 w-4" /> Performance</div>
                         </button>
                         <button
                             onClick={() => setActiveTab('staff')}
@@ -871,6 +950,141 @@ export default function FarmDetails() {
                                                     </td>
                                                 </tr>
                                             )}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
+                </TabsContent>
+
+                {/* PERFORMANCE TAB */}
+                <TabsContent active={activeTab === 'performance'}>
+                    <div className="mt-6 space-y-8">
+                        {/* Farm Performance Indicators */}
+                        <Card className="border-l-4 border-l-blue-500">
+                            <CardHeader className="pb-4 bg-slate-50/50 dark:bg-slate-900/30 border-b border-slate-100 dark:border-slate-800">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <CardTitle className="text-lg font-bold text-slate-900 dark:text-white">Farm Performance Indicators</CardTitle>
+                                        <p className="text-sm text-slate-500 mt-1">Key reproduction and production metrics for {farm.owner_name}</p>
+                                    </div>
+                                    <div className="p-2 bg-blue-100 text-blue-600 rounded-lg">
+                                        <Activity className="h-5 w-5" />
+                                    </div>
+                                </div>
+                            </CardHeader>
+                            <CardContent className="p-0">
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-sm text-left">
+                                        <thead className="text-xs text-slate-500 uppercase bg-slate-50 dark:bg-slate-950 border-b border-slate-100 dark:border-slate-800">
+                                            <tr>
+                                                <th className="px-6 py-4 font-semibold w-1/2">Indicator</th>
+                                                <th className="px-6 py-4 font-semibold">Value</th>
+                                                <th className="px-6 py-4 font-semibold text-right">Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                                            {performanceMetrics ? (
+                                                <>
+                                                    <tr className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                                                        <td className="px-6 py-4 font-medium text-slate-700 dark:text-slate-300">Insemination after calving (days)</td>
+                                                        <td className="px-6 py-4 font-bold">{performanceMetrics.avgInsemDays}</td>
+                                                        <td className="px-6 py-4 text-right">{renderTrend(Number(performanceMetrics.avgInsemDays), 80, true)}</td>
+                                                    </tr>
+                                                    <tr className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                                                        <td className="px-6 py-4 font-medium text-slate-700 dark:text-slate-300">Average Calving interval (months)</td>
+                                                        <td className="px-6 py-4 font-bold">{performanceMetrics.avgCalvingInterval}</td>
+                                                        <td className="px-6 py-4 text-right">{renderTrend(Number(performanceMetrics.avgCalvingInterval), 14, true)}</td>
+                                                    </tr>
+                                                    <tr className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                                                        <td className="px-6 py-4 font-medium text-slate-700 dark:text-slate-300">Heat after calving (days)</td>
+                                                        <td className="px-6 py-4 font-bold">{performanceMetrics.avgHeatDays}</td>
+                                                        <td className="px-6 py-4 text-right">{renderTrend(Number(performanceMetrics.avgHeatDays), 60, true)}</td>
+                                                    </tr>
+                                                    <tr className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                                                        <td className="px-6 py-4 font-medium text-slate-700 dark:text-slate-300">No. of inseminations per conception</td>
+                                                        <td className="px-6 py-4 font-bold">{performanceMetrics.insemPerConception}</td>
+                                                        <td className="px-6 py-4 text-right">{renderTrend(Number(performanceMetrics.insemPerConception), 2.5, true)}</td>
+                                                    </tr>
+                                                    <tr className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                                                        <td className="px-6 py-4 font-medium text-slate-700 dark:text-slate-300">Rate of repeat breeders (%)</td>
+                                                        <td className="px-6 py-4 font-bold">{performanceMetrics.repeatBreederRate}%</td>
+                                                        <td className="px-6 py-4 text-right">{renderTrend(Number(performanceMetrics.repeatBreederRate), 15, true)}</td>
+                                                    </tr>
+                                                    <tr className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                                                        <td className="px-6 py-4 font-medium text-slate-700 dark:text-slate-300">Non-pregnant cows 3 month after calving (%)</td>
+                                                        <td className="px-6 py-4 font-bold">{performanceMetrics.nonPreg90DayRate}%</td>
+                                                        <td className="px-6 py-4 text-right">{renderTrend(Number(performanceMetrics.nonPreg90DayRate), 20, true)}</td>
+                                                    </tr>
+                                                </>
+                                            ) : (
+                                                <tr><td colSpan={3} className="p-6 text-center text-slate-500">Insufficient data to calculate metrics.</td></tr>
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        {/* Cluster Performance Indicators */}
+                        <Card className="border-l-4 border-l-purple-500 opacity-90">
+                            <CardHeader className="pb-4 bg-slate-50/50 dark:bg-slate-900/30 border-b border-slate-100 dark:border-slate-800">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <div className="flex items-center gap-2">
+                                            <CardTitle className="text-lg font-bold text-slate-900 dark:text-white">Cluster Performance</CardTitle>
+                                            <Badge variant="default" className="bg-purple-100 text-purple-700 border-purple-200">Benchmark</Badge>
+                                        </div>
+                                        <p className="text-sm text-slate-500 mt-1">Aggregate metrics for Cluster: {farm.cluster_number || 'Unknown'}</p>
+                                    </div>
+                                    <div className="p-2 bg-purple-100 text-purple-600 rounded-lg">
+                                        <Target className="h-5 w-5" />
+                                    </div>
+                                </div>
+                            </CardHeader>
+                            <CardContent className="p-0">
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-sm text-left">
+                                        <thead className="text-xs text-slate-500 uppercase bg-slate-50 dark:bg-slate-950 border-b border-slate-100 dark:border-slate-800">
+                                            <tr>
+                                                <th className="px-6 py-4 font-semibold w-1/2">Indicator</th>
+                                                <th className="px-6 py-4 font-semibold">Cluster Avg.</th>
+                                                <th className="px-6 py-4 font-semibold text-right">Comparison</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                                            {/* Simulated Cluster Data for Demo */}
+                                            <tr className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                                                <td className="px-6 py-4 font-medium text-slate-700 dark:text-slate-300">Insemination after calving (days)</td>
+                                                <td className="px-6 py-4 font-bold">75.0</td>
+                                                <td className="px-6 py-4 text-right"><span className="text-xs text-slate-400 flex items-center justify-end gap-1"><Minus className="h-3 w-3"/> Avg</span></td>
+                                            </tr>
+                                            <tr className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                                                <td className="px-6 py-4 font-medium text-slate-700 dark:text-slate-300">Average Calving interval (months)</td>
+                                                <td className="px-6 py-4 font-bold">14.2</td>
+                                                <td className="px-6 py-4 text-right text-emerald-600 text-xs font-bold">Better</td>
+                                            </tr>
+                                            <tr className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                                                <td className="px-6 py-4 font-medium text-slate-700 dark:text-slate-300">Heat after calving (days)</td>
+                                                <td className="px-6 py-4 font-bold">50.5</td>
+                                                <td className="px-6 py-4 text-right text-emerald-600 text-xs font-bold">Better</td>
+                                            </tr>
+                                            <tr className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                                                <td className="px-6 py-4 font-medium text-slate-700 dark:text-slate-300">No. of inseminations per conception</td>
+                                                <td className="px-6 py-4 font-bold">1.8</td>
+                                                <td className="px-6 py-4 text-right text-rose-500 text-xs font-bold">Lower</td>
+                                            </tr>
+                                            <tr className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                                                <td className="px-6 py-4 font-medium text-slate-700 dark:text-slate-300">Rate of repeat breeders (%)</td>
+                                                <td className="px-6 py-4 font-bold">12.5%</td>
+                                                <td className="px-6 py-4 text-right"><span className="text-xs text-slate-400 flex items-center justify-end gap-1"><Minus className="h-3 w-3"/> Avg</span></td>
+                                            </tr>
+                                            <tr className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                                                <td className="px-6 py-4 font-medium text-slate-700 dark:text-slate-300">Non-pregnant cows 3 month after calving (%)</td>
+                                                <td className="px-6 py-4 font-bold">25.0%</td>
+                                                <td className="px-6 py-4 text-right text-emerald-600 text-xs font-bold">Better</td>
+                                            </tr>
                                         </tbody>
                                     </table>
                                 </div>

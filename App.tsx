@@ -10,6 +10,7 @@ import Farms from './pages/Farms';
 import FarmDetails from './pages/FarmDetails';
 import Cows from './pages/Cows';
 import CowDetails from './pages/CowDetails';
+import ClusterPerformance from './pages/ClusterPerformance';
 
 // Protected Route Wrapper
 const ProtectedRoute = ({ children }: { children?: React.ReactNode }) => {
@@ -45,6 +46,9 @@ function AppRoutes() {
         {/* Cow Routes */}
         <Route path="cows" element={<Cows />} />
         <Route path="cows/:id" element={<CowDetails />} />
+
+        {/* Cluster Routes */}
+        <Route path="clusters" element={<ClusterPerformance />} />
       </Route>
       
       <Route path="*" element={<Navigate to="/" replace />} />

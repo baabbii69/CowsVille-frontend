@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -12,7 +13,8 @@ import {
   Bell,
   ChevronRight,
   Settings,
-  User as UserIcon
+  User as UserIcon,
+  PieChart
 } from 'lucide-react';
 import { cn } from '../ui';
 
@@ -25,6 +27,7 @@ export default function Layout() {
     { name: 'Dashboard', path: '/', icon: LayoutDashboard },
     { name: 'Farms Registry', path: '/farms', icon: Tractor },
     { name: 'Livestock', path: '/cows', icon: Milk },
+    { name: 'Cluster Analytics', path: '/clusters', icon: PieChart },
   ];
 
   return (
@@ -52,9 +55,11 @@ export default function Layout() {
         {/* Logo Area */}
         <div className="flex h-20 items-center px-6 border-b border-slate-800/50">
             <div className="flex items-center gap-3 overflow-hidden">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary-500 to-indigo-600 text-white shadow-lg shadow-primary-500/20">
-                    <Tractor className="h-6 w-6" />
-                </div>
+                <img 
+                  src="https://i.imgur.com/y2J6x6h.png" 
+                  alt="Cowsville Logo" 
+                  className="h-10 w-10 shrink-0 rounded-full object-cover shadow-lg shadow-primary-500/20 border border-slate-700"
+                />
                 <div className={cn("flex flex-col transition-opacity duration-300", !isSidebarOpen && "md:hidden")}>
                     <span className="text-lg font-bold text-white tracking-tight">Cowsville</span>
                     <span className="text-xs text-slate-400 font-medium">Farm Manager Pro</span>

@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -6,7 +7,7 @@ import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Input, Label, Button } from '../components/ui';
-import { Tractor, ArrowRight, CheckCircle2, AlertCircle, UserCheck } from 'lucide-react';
+import { ArrowRight, AlertCircle, UserCheck } from 'lucide-react';
 
 const loginSchema = z.object({
   username: z.string().min(1, "Username is required"),
@@ -73,9 +74,11 @@ export default function Login() {
         {/* Content */}
         <div className="relative z-10">
           <div className="flex items-center gap-3 text-2xl font-bold tracking-tight">
-            <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm border border-white/30 shadow-lg">
-              <Tractor className="w-6 h-6 text-white" />
-            </div>
+            <img 
+                src="https://i.imgur.com/y2J6x6h.png" 
+                alt="Cowsville Logo" 
+                className="w-12 h-12 rounded-full object-cover border-2 border-white/30 shadow-lg"
+            />
             Cowsville
           </div>
         </div>

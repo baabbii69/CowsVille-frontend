@@ -57,23 +57,29 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
 Button.displayName = 'Button';
 
 // --- Card ---
-export const Card = ({ className, children }: { className?: string; children?: React.ReactNode }) => (
-  <div className={cn('rounded-xl border border-slate-200 bg-white text-slate-950 shadow-sm dark:border-slate-800 dark:bg-slate-900 dark:text-slate-50', className)}>
-    {children}
-  </div>
-);
+export const Card = forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(({ className, ...props }, ref) => (
+  <div
+    ref={ref}
+    className={cn('rounded-xl border border-slate-200 bg-white text-slate-950 shadow-sm dark:border-slate-800 dark:bg-slate-900 dark:text-slate-50', className)}
+    {...props}
+  />
+));
+Card.displayName = "Card";
 
-export const CardHeader = ({ className, children }: { className?: string; children?: React.ReactNode }) => (
-  <div className={cn('flex flex-col space-y-1.5 p-6', className)}>{children}</div>
-);
+export const CardHeader = forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(({ className, ...props }, ref) => (
+  <div ref={ref} className={cn('flex flex-col space-y-1.5 p-6', className)} {...props} />
+));
+CardHeader.displayName = "CardHeader";
 
-export const CardTitle = ({ className, children }: { className?: string; children?: React.ReactNode }) => (
-  <h3 className={cn('font-semibold leading-none tracking-tight', className)}>{children}</h3>
-);
+export const CardTitle = forwardRef<HTMLParagraphElement, React.HTMLAttributes<HTMLHeadingElement>>(({ className, ...props }, ref) => (
+  <h3 ref={ref} className={cn('font-semibold leading-none tracking-tight', className)} {...props} />
+));
+CardTitle.displayName = "CardTitle";
 
-export const CardContent = ({ className, children }: { className?: string; children?: React.ReactNode }) => (
-  <div className={cn('p-6 pt-0', className)}>{children}</div>
-);
+export const CardContent = forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(({ className, ...props }, ref) => (
+  <div ref={ref} className={cn('p-6 pt-0', className)} {...props} />
+));
+CardContent.displayName = "CardContent";
 
 // --- Input ---
 export const Input = forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(
@@ -155,7 +161,7 @@ interface ModalProps {
     isOpen: boolean;
     onClose: () => void;
     title: string;
-    children: React.ReactNode;
+    children?: React.ReactNode;
     className?: string;
 }
 
@@ -194,15 +200,15 @@ export const Modal = ({ isOpen, onClose, title, children, className }: ModalProp
 };
 
 // --- Tabs ---
-export const Tabs = ({ children, className }: { children: React.ReactNode; className?: string }) => {
+export const Tabs = ({ children, className }: { children?: React.ReactNode; className?: string }) => {
     return <div className={cn("", className)}>{children}</div>
 }
 
-export const TabsList = ({ children, className }: { children: React.ReactNode; className?: string }) => {
+export const TabsList = ({ children, className }: { children?: React.ReactNode; className?: string }) => {
     return <div className={cn("flex space-x-1 rounded-xl bg-slate-100 p-1 dark:bg-slate-800", className)}>{children}</div>
 }
 
-export const TabsTrigger = ({ children, active, onClick, className }: { children: React.ReactNode; active: boolean; onClick: () => void; className?: string }) => {
+export const TabsTrigger = ({ children, active, onClick, className }: { children?: React.ReactNode; active: boolean; onClick: () => void; className?: string }) => {
     return (
         <button
             type="button"
@@ -220,7 +226,7 @@ export const TabsTrigger = ({ children, active, onClick, className }: { children
     )
 }
 
-export const TabsContent = ({ children, active, className }: { children: React.ReactNode; active: boolean; className?: string }) => {
+export const TabsContent = ({ children, active, className }: { children?: React.ReactNode; active: boolean; className?: string }) => {
     if (!active) return null;
     return <div className={cn("mt-4", className)}>{children}</div>
 }

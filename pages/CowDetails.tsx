@@ -11,7 +11,7 @@ import { useToast } from '../context/ToastContext';
 // --- Fertility Window Component ---
 const FertilityWindowGraph = ({ heatStartTime }: { heatStartTime?: string | Date }) => {
     // Mock start time if not provided (14 hours ago to show Green zone active)
-    const start = heatStartTime ? new Date(heatStartTime) : new Date(Date.now() - 1000 * 60 * 60 * 14); 
+    const start = useMemo(() => heatStartTime ? new Date(heatStartTime) : new Date(Date.now() - 1000 * 60 * 60 * 14), [heatStartTime]);
     
     const [now, setNow] = useState(new Date());
 
@@ -21,13 +21,30 @@ const FertilityWindowGraph = ({ heatStartTime }: { heatStartTime?: string | Date
     }, []);
 
     const elapsedHours = (now.getTime() - start.getTime()) / (1000 * 60 * 60);
-    const maxHours = 32; 
+    const maxHours = 32; // Showing slightly more than 28 to give breathing room
     const graphHeight = 140;
     const graphWidth = 320;
     
-    // Map hours to SVG X coordinate
+    // Map relative hours to SVG X coordinate
     const scaleX = (h: number) => (h / maxHours) * graphWidth;
     const pointerX = Math.min(scaleX(elapsedHours), graphWidth);
+
+    // Generate X-Axis Ticks (Every 4 hours from Start Time)
+    const ticks = useMemo(() => {
+        const t = [];
+        for (let i = 0; i <= 28; i += 4) {
+            const tickTime = new Date(start.getTime() + i * 60 * 60 * 1000);
+            const isMidnightCross = tickTime.getHours() < 4 && i > 0; // Simple check for day change context
+            
+            t.push({
+                hour: i,
+                label: tickTime.toLocaleTimeString([], { hour: 'numeric', hour12: true }).replace(' ', ''), // "6PM"
+                day: isMidnightCross ? tickTime.toLocaleDateString([], { weekday: 'short' }) : null, // "Tue"
+                fullTime: tickTime
+            });
+        }
+        return t;
+    }, [start]);
 
     return (
         <div className="w-full space-y-4 bg-white dark:bg-slate-900 rounded-2xl p-2">
@@ -56,9 +73,16 @@ const FertilityWindowGraph = ({ heatStartTime }: { heatStartTime?: string | Date
                     <h4 className="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-2">
                         <Timer className="h-4 w-4 text-violet-500" /> Fertility Window
                     </h4>
-                    <p className="text-xs text-slate-500 mt-1">
-                        Heat Onset: <span className="font-medium text-slate-700 dark:text-slate-300">{start.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
-                    </p>
+                    <div className="text-xs text-slate-500 mt-1">
+                        Heat Onset: 
+                        <span className="font-bold text-slate-700 dark:text-slate-300 ml-1">
+                            {start.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })}
+                        </span>
+                        <span className="mx-1">at</span>
+                        <span className="font-medium text-slate-700 dark:text-slate-300">
+                            {start.toLocaleTimeString([], {hour: 'numeric', minute:'2-digit'})}
+                        </span>
+                    </div>
                 </div>
                 <div className="text-right">
                     <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Elapsed Time</p>
@@ -100,15 +124,18 @@ const FertilityWindowGraph = ({ heatStartTime }: { heatStartTime?: string | Date
                         <line key={y} x1="0" y1={graphHeight * y} x2={graphWidth} y2={graphHeight * y} stroke="#e2e8f0" strokeWidth="1" />
                     ))}
                     
-                    {/* X-Axis Markers */}
-                    {[0, 6, 9, 24, 28].map(h => (
-                        <g key={h}>
-                            <line x1={scaleX(h)} y1="0" x2={scaleX(h)} y2={graphHeight} stroke="#cbd5e1" strokeWidth="1" strokeDasharray="4 4" />
-                            <text x={scaleX(h) + 2} y={graphHeight - 6} fontSize="9" fill="#64748b" fontWeight="600">{h}h</text>
+                    {/* X-Axis Absolute Time Markers */}
+                    {ticks.map((tick, i) => (
+                        <g key={i}>
+                            <line x1={scaleX(tick.hour)} y1="0" x2={scaleX(tick.hour)} y2={graphHeight} stroke="#cbd5e1" strokeWidth="1" strokeDasharray="4 4" />
+                            <text x={scaleX(tick.hour)} y={graphHeight - 15} fontSize="9" fill="#64748b" fontWeight="600" textAnchor="middle">{tick.label}</text>
+                            {tick.day && (
+                                <text x={scaleX(tick.hour)} y={graphHeight - 5} fontSize="8" fill="#94a3b8" fontWeight="bold" textAnchor="middle">{tick.day}</text>
+                            )}
                         </g>
                     ))}
 
-                    {/* --- Probability Zones (Area Charts) --- */}
+                    {/* --- Probability Zones (Area Charts) mapped to Relative Hours --- */}
                     
                     {/* 0-6h: No Probability (Red) */}
                     <path 
@@ -649,7 +676,7 @@ export default function CowDetails() {
 
                         <TabsContent active={activeTab === 'repro'}>
                             <div className="space-y-6">
-                                {/* Fertility Window Graph - Enhanced Light Theme */}
+                                {/* Fertility Window Graph - Enhanced Light Theme with Date */}
                                 {cow.status !== 'Pregnant' && (
                                     <Card className="border-l-4 border-l-violet-500 shadow-md bg-white dark:bg-slate-900 overflow-hidden">
                                         <CardContent className="p-6">

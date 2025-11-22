@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { CowService, FarmService, DataService } from '../services/api';
 import { Card, CardContent, Button, Input, Label, Badge, Modal, Select, Tabs, TabsList, TabsTrigger, TabsContent, Switch } from '../components/ui';
-import { Plus, Search, X, Activity, Milk, Heart, FileText, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Search, X, Activity, Milk, Heart, FileText, ChevronLeft, ChevronRight, Filter } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -43,7 +43,12 @@ export default function Cows() {
   const navigate = useNavigate();
   const [isCreating, setIsCreating] = useState(false);
   const [activeTab, setActiveTab] = useState('identity');
+  
+  // Filter State
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [breedFilter, setBreedFilter] = useState('all');
+  
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
@@ -55,10 +60,10 @@ export default function Cows() {
   const { data: breeds } = useQuery({ queryKey: ['breeds'], queryFn: DataService.getBreedTypes });
   const { data: gyneStatuses } = useQuery({ queryKey: ['gyne'], queryFn: DataService.getGynecologicalStatuses });
 
-  // Reset to first page when search changes
+  // Reset to first page when search or filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm]);
+  }, [searchTerm, statusFilter, breedFilter]);
 
   const createMutation = useMutation({
     mutationFn: CowService.create,
@@ -100,11 +105,16 @@ export default function Cows() {
     createMutation.mutate(data as any);
   };
 
-  // Filtering
-  const filteredCows = cows?.filter(cow => 
-      cow.cow_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (typeof cow.farm === 'string' && cow.farm.toLowerCase().includes(searchTerm.toLowerCase()))
-  ) || [];
+  // Enhanced Filtering Logic
+  const filteredCows = cows?.filter(cow => {
+      const matchesSearch = cow.cow_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (typeof cow.farm === 'string' ? cow.farm.toLowerCase() : (cow.farm as any).farm_id.toLowerCase()).includes(searchTerm.toLowerCase());
+      
+      const matchesStatus = statusFilter === 'all' || cow.status === statusFilter;
+      const matchesBreed = breedFilter === 'all' || cow.breed.toString() === breedFilter;
+
+      return matchesSearch && matchesStatus && matchesBreed;
+  }) || [];
 
   // Pagination Logic
   const totalItems = filteredCows.length;
@@ -115,7 +125,7 @@ export default function Cows() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
          <div>
             <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Livestock Registry</h2>
             <p className="text-slate-500 text-sm">Manage individual cow records.</p>
@@ -125,15 +135,38 @@ export default function Cows() {
          </Button>
       </div>
 
-      <div className="flex items-center space-x-2 bg-white dark:bg-slate-900 p-2 rounded-lg border border-slate-200 dark:border-slate-800 max-w-md shadow-sm">
-        <Search className="h-5 w-5 text-slate-400 ml-2" />
-        <input
-            type="text"
-            placeholder="Search by Tag ID or Farm ID..."
-            className="flex-1 bg-transparent border-none focus:ring-0 text-sm text-slate-900 dark:text-white placeholder:text-slate-400"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-        />
+      {/* Advanced Filter Bar */}
+      <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col lg:flex-row gap-4">
+        <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <input
+                type="text"
+                placeholder="Search by Tag ID or Farm ID..."
+                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all text-sm"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+            />
+        </div>
+        <div className="flex gap-3 overflow-x-auto pb-1 lg:pb-0">
+            <div className="min-w-[150px]">
+                <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="bg-slate-50 dark:bg-slate-950 h-10 text-sm">
+                    <option value="all">All Statuses</option>
+                    <option value="Healthy">Healthy</option>
+                    <option value="Sick">Sick</option>
+                    <option value="Pregnant">Pregnant</option>
+                    <option value="Lactating">Lactating</option>
+                </Select>
+            </div>
+            <div className="min-w-[150px]">
+                 <Select value={breedFilter} onChange={(e) => setBreedFilter(e.target.value)} className="bg-slate-50 dark:bg-slate-950 h-10 text-sm">
+                    <option value="all">All Breeds</option>
+                    {breeds?.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                </Select>
+            </div>
+            <Button variant="ghost" onClick={() => { setSearchTerm(''); setStatusFilter('all'); setBreedFilter('all'); }} className="text-slate-500 hover:text-slate-700">
+                Reset
+            </Button>
+        </div>
       </div>
 
       <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col min-h-[500px]">
@@ -167,7 +200,18 @@ export default function Cows() {
                             </td>
                         </tr>
                     ))) : (
-                        <tr><td colSpan={5} className="p-12 text-center text-slate-500">No cows found matching your search.</td></tr>
+                        <tr>
+                            <td colSpan={5} className="p-12 text-center text-slate-500">
+                                <div className="flex flex-col items-center gap-2">
+                                    <div className="p-3 bg-slate-100 dark:bg-slate-800 rounded-full">
+                                        <Filter className="h-6 w-6 text-slate-400" />
+                                    </div>
+                                    <p className="font-medium text-slate-900 dark:text-white">No cows found</p>
+                                    <p className="text-xs">Try adjusting your search or filters.</p>
+                                    <Button variant="link" onClick={() => { setSearchTerm(''); setStatusFilter('all'); setBreedFilter('all'); }}>Clear Filters</Button>
+                                </div>
+                            </td>
+                        </tr>
                     )}
                 </tbody>
             </table>

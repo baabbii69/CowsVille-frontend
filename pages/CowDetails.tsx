@@ -4,7 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { CowService, DataService } from '../services/api';
 import { Card, CardContent, CardHeader, CardTitle, Button, Badge, Tabs, TabsList, TabsTrigger, TabsContent, Modal } from '../components/ui';
-import { ArrowLeft, Activity, Milk, Heart, Calendar, Scale, Clock, Syringe, AlertTriangle, FileText, CheckCircle2, Stethoscope, Info, Home, Zap, Thermometer, TrendingUp, Timer } from 'lucide-react';
+import { ArrowLeft, Activity, Milk, Heart, Calendar, Scale, Clock, Syringe, AlertTriangle, FileText, CheckCircle2, Stethoscope, Info, Home, Zap, Thermometer, TrendingUp, Timer, Flame } from 'lucide-react';
 import { MedicalAssessment, StaffMember } from '../types';
 import { useToast } from '../context/ToastContext';
 
@@ -396,6 +396,12 @@ export default function CowDetails() {
         queryFn: () => CowService.getMedicalAssessmentsByCow(id!),
         enabled: !!id
     });
+    
+    const { data: reproRecords } = useQuery({
+         queryKey: ['repro-records', id],
+         queryFn: () => CowService.getReproductionRecords(id!),
+         enabled: !!id
+    });
 
     const { data: breeds } = useQuery({ queryKey: ['breeds'], queryFn: DataService.getBreedTypes });
     const { data: gyneStatuses } = useQuery({ queryKey: ['gyne'], queryFn: DataService.getGynecologicalStatuses });
@@ -732,6 +738,46 @@ export default function CowDetails() {
                                         </CardContent>
                                     </Card>
                                 </div>
+
+                                {/* Heat Signs History - NEW SECTION */}
+                                <Card className="border-t-4 border-t-amber-500 shadow-sm">
+                                    <CardHeader className="pb-2">
+                                        <CardTitle className="text-sm uppercase text-slate-500 flex items-center gap-2">
+                                            <Flame className="h-4 w-4 text-amber-500" /> Reported Heat Signs
+                                        </CardTitle>
+                                    </CardHeader>
+                                    <CardContent>
+                                        {reproRecords && reproRecords.length > 0 ? (
+                                            <div className="space-y-4 mt-2">
+                                                {reproRecords.map((record: any) => (
+                                                    <div key={record.id} className="flex flex-col sm:flex-row sm:items-start gap-3 pb-3 border-b border-slate-100 dark:border-slate-800 last:border-0 last:pb-0">
+                                                        <div className="bg-slate-50 dark:bg-slate-800 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-center min-w-[100px]">
+                                                            <div className="text-xs font-bold text-slate-500 uppercase tracking-wide">
+                                                                {new Date(record.heat_sign_start).toLocaleDateString([], { month: 'short', day: 'numeric'})}
+                                                            </div>
+                                                            <div className="text-xs text-slate-400">
+                                                                {new Date(record.heat_sign_start).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit'})}
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex-1 bg-amber-50 dark:bg-amber-900/10 p-3 rounded-lg border border-amber-100 dark:border-amber-800">
+                                                            <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
+                                                                Observed Signs:
+                                                            </p>
+                                                            <p className="text-sm text-amber-800 dark:text-amber-200 mt-1">
+                                                                {record.heat_signs_seen}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <div className="text-center py-6 text-slate-400 text-sm">
+                                                No heat signs recorded for this animal yet.
+                                            </div>
+                                        )}
+                                    </CardContent>
+                                </Card>
+
                             </div>
                         </TabsContent>
                     </Tabs>

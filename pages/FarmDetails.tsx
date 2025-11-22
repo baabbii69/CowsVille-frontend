@@ -211,17 +211,26 @@ export default function FarmDetails() {
     const { toast } = useToast();
     const [activeTab, setActiveTab] = useState('overview');
     
-    // State for Modals
+    // State for Modals & Search
     const [isStaffModalOpen, setIsStaffModalOpen] = useState(false);
     const [staffModalType, setStaffModalType] = useState<'doctor' | 'inseminator' | null>(null);
     const [selectedStaffId, setSelectedStaffId] = useState<number | string>("");
     const [staffSearchTerm, setStaffSearchTerm] = useState("");
+    
+    // State for Tab-specific Searches
+    const [cowSearchTerm, setCowSearchTerm] = useState('');
+    const [medicalSearchTerm, setMedicalSearchTerm] = useState('');
     
     const [selectedRecord, setSelectedRecord] = useState<MedicalAssessment | null>(null);
 
     // State for Cows Pagination
     const [cowsPage, setCowsPage] = useState(1);
     const cowsPerPage = 10;
+
+    // Reset pagination when search changes
+    useEffect(() => {
+        setCowsPage(1);
+    }, [cowSearchTerm]);
 
     // Queries
     const { data: farm, isLoading: farmLoading } = useQuery({
@@ -236,19 +245,38 @@ export default function FarmDetails() {
         select: (allCows) => allCows.filter(c => typeof c.farm === 'string' ? c.farm === id : (c.farm as any).farm_id === id)
     });
     
-    // Pagination Logic for Cows Tab
-    const cowsList = allCows || [];
-    const totalCows = cowsList.length;
+    // Filter and Pagination Logic for Cows Tab
+    const filteredCowsList = useMemo(() => {
+        if (!allCows) return [];
+        if (!cowSearchTerm) return allCows;
+        const term = cowSearchTerm.toLowerCase();
+        return allCows.filter(c => c.cow_id.toLowerCase().includes(term));
+    }, [allCows, cowSearchTerm]);
+
+    const totalCows = filteredCowsList.length;
     const totalCowsPages = Math.ceil(totalCows / cowsPerPage);
     const startCowsIndex = (cowsPage - 1) * cowsPerPage;
     const endCowsIndex = startCowsIndex + cowsPerPage;
-    const paginatedCows = cowsList.slice(startCowsIndex, endCowsIndex);
+    const paginatedCows = filteredCowsList.slice(startCowsIndex, endCowsIndex);
 
     const { data: medicalRecords } = useQuery({
         queryKey: ['medical', id],
         queryFn: () => FarmService.getMedicalAssessments(id!),
         enabled: !!id
     });
+
+    // Filter Logic for Medical Records
+    const filteredMedicalRecords = useMemo(() => {
+        if (!medicalRecords) return [];
+        if (!medicalSearchTerm) return medicalRecords;
+        const term = medicalSearchTerm.toLowerCase();
+        return medicalRecords.filter(r => {
+            const cowId = typeof r.cow === 'string' ? r.cow : (r.cow as any).cow_id;
+            const diagnosis = r.diagnosis || '';
+            const notes = r.notes || '';
+            return cowId.toLowerCase().includes(term) || diagnosis.toLowerCase().includes(term) || notes.toLowerCase().includes(term);
+        });
+    }, [medicalRecords, medicalSearchTerm]);
     
     const { data: housingTypes } = useQuery({ queryKey: ['housing'], queryFn: DataService.getHousingTypes });
     const { data: floorTypes } = useQuery({ queryKey: ['floors'], queryFn: DataService.getFloorTypes });
@@ -749,9 +777,20 @@ export default function FarmDetails() {
                 <TabsContent active={activeTab === 'cows'}>
                     <div className="mt-6">
                          <Card>
-                            <CardHeader className="flex flex-row items-center justify-between">
+                            <CardHeader className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                                 <CardTitle>Registered Cows</CardTitle>
-                                <Button size="sm" onClick={() => navigate('/cows')}>Go to Registry</Button>
+                                <div className="flex items-center gap-2 w-full md:w-auto">
+                                    <div className="relative flex-1 md:w-64">
+                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                                        <Input 
+                                            placeholder="Search by Cow ID..." 
+                                            className="pl-10 h-10 bg-slate-50 dark:bg-slate-900"
+                                            value={cowSearchTerm}
+                                            onChange={(e) => setCowSearchTerm(e.target.value)}
+                                        />
+                                    </div>
+                                    <Button size="sm" onClick={() => navigate('/cows')}>Go to Registry</Button>
+                                </div>
                             </CardHeader>
                             <CardContent>
                                 <div className="overflow-x-auto">
@@ -778,7 +817,7 @@ export default function FarmDetails() {
                                                     </td>
                                                 </tr>
                                             ))) : (
-                                                <tr><td colSpan={5} className="p-8 text-center text-slate-500">No cows registered yet.</td></tr>
+                                                <tr><td colSpan={5} className="p-8 text-center text-slate-500">No cows found matching your search.</td></tr>
                                             )}
                                         </tbody>
                                     </table>
@@ -892,8 +931,17 @@ export default function FarmDetails() {
 
                         {/* Assessments Table */}
                         <Card>
-                            <CardHeader>
+                            <CardHeader className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                                 <CardTitle>Assessment Records</CardTitle>
+                                <div className="relative w-full md:w-72">
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                                    <Input 
+                                        placeholder="Search by Cow ID or Diagnosis..." 
+                                        className="pl-10 h-10 bg-slate-50 dark:bg-slate-900"
+                                        value={medicalSearchTerm}
+                                        onChange={(e) => setMedicalSearchTerm(e.target.value)}
+                                    />
+                                </div>
                             </CardHeader>
                             <CardContent>
                                 <div className="overflow-x-auto">
@@ -909,8 +957,8 @@ export default function FarmDetails() {
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                                            {medicalRecords && medicalRecords.length > 0 ? (
-                                                medicalRecords.map((record) => (
+                                            {filteredMedicalRecords && filteredMedicalRecords.length > 0 ? (
+                                                filteredMedicalRecords.map((record) => (
                                                     <tr key={record.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                                                         <td className="px-6 py-4 whitespace-nowrap text-slate-600 dark:text-slate-400">
                                                             {new Date(record.assessment_date).toLocaleDateString()}
@@ -946,7 +994,7 @@ export default function FarmDetails() {
                                             ) : (
                                                 <tr>
                                                     <td colSpan={6} className="p-8 text-center text-slate-500">
-                                                        No medical assessments found for this farm.
+                                                        No medical assessments found matching your criteria.
                                                     </td>
                                                 </tr>
                                             )}
